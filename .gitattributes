@@ -1,0 +1,18 @@
+# Line endings.
+#
+# Everything text is stored with LF in the repository and checked out with
+# LF. Without this the tree carries CRLF (Git for Windows' default is
+# core.autocrlf=true) and the first contributor on Linux who touches a file
+# sends a diff of every line in it, with the real change buried inside.
+#
+# It also decides what the sdist ships, because `git archive` and the build
+# read from the index.
+* text=auto eol=lf
+
+# Audio and binaries, untouched.
+*.alaw  binary
+*.ulaw  binary
+*.wav   binary
+*.png   binary
+*.jpg   binary
+*.ico   binary

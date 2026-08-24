@@ -1,0 +1,26 @@
+# Generated
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Test artifacts
+.coverage
+.coverage.*
+htmlcov/
+
+# Keys. Never in a public repository.
+.env
+*.env
+secrets/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

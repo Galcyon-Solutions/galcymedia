@@ -1,0 +1,129 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "galcymedia"
+version = "0.1.0"
+description = "Media gateway for Asterisk chan_websocket. Bring your own voice provider."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Gian Diego Javes", email = "gjaves@galcyon.com" },
+]
+keywords = [
+    "asterisk",
+    "chan_websocket",
+    "voip",
+    "sip",
+    "voice-agent",
+    "media-gateway",
+    "telephony",
+    "realtime-audio",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Telecommunications Industry",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Communications :: Telephony",
+    "Topic :: Multimedia :: Sound/Audio",
+    "Framework :: AsyncIO",
+    "Typing :: Typed",
+]
+
+# One hard dependency, the same one Asterisk's official examples use. Everything
+# else is the standard library. A media gateway that drags twenty packages
+# along is a gateway that breaks on its own.
+dependencies = [
+    "websockets>=14.1",
+]
+
+# The official adapters live in galcymedia.adapters and each one brings its
+# provider as an OPTIONAL extra. A bare `pip install galcymedia` still installs
+# only websockets: the core imports no provider, so nobody pays for the
+# adapter they do not use.
+[project.optional-dependencies]
+# The floor is 1.4.0: that is where the name SingleClientWebsocketServerTransport
+# the adapter's docstring references settles, and the FrameSerializer contract
+# (setup/serialize/deserialize, InputParams) stays identical from 1.4 to 1.7,
+# verified. The <2.0.0 ceiling keeps a major bump from slipping in: Pipecat
+# moves fast, and a 2.x could touch the frames or the serializer unreviewed.
+pipecat = [
+    "pipecat-ai>=1.4.0,<2.0.0",
+]
+# Deepgram, OpenAI Realtime and ElevenLabs speak their raw WebSocket, which
+# `websockets` already covers: their adapters bring no new dependency. The
+# extra exists anyway, so the name is the same for all of them and nobody has
+# to remember which one needs it.
+deepgram = []
+openai = []
+elevenlabs = []
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.6",
+    # The reference for pcm.py: stdlib audioop below 3.13, this package after.
+    "audioop-lts>=0.2; python_version >= '3.13'",
+]
+
+[project.urls]
+Homepage = "https://github.com/Galcyon-Solutions/galcymedia"
+Repository = "https://github.com/Galcyon-Solutions/galcymedia"
+Issues = "https://github.com/Galcyon-Solutions/galcymedia/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/galcymedia"]
+
+# The sdist says what it carries instead of taking whatever is next to it.
+# Undeclared, hatchling sweeps up the working directory, and a development
+# checkout holds far more than a release should: reference clones of other
+# people's SDKs, working notes, internal tooling. This tree does not have
+# them, so the artifact came out right anyway, and that is exactly the kind
+# of accident worth not depending on.
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/galcymedia",
+    "tests",
+    "docs/protocol.md",
+    "docs/decisions.md",
+    "docs/architecture.md",
+    "README.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "pyproject.toml",
+]
+# `include` alone does not settle it: hatchling adds the version-controlled
+# files on top, so a checkout that carries working material would ship it.
+# Only the paths listed above belong in a release.
+exclude = [
+    "/docs/*",
+    "!/docs/protocol.md",
+    "!/docs/decisions.md",
+    "!/docs/architecture.md",
+    "/vendor*",
+    "/scratch*",
+    "/tools",
+    "/es",
+    "/.claude",
+    "/.atl",
+    "/[A-Z]*.md",
+    "!/README.md",
+    "!/CHANGELOG.md",
+    "!/CONTRIBUTING.md",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
