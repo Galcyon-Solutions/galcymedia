@@ -15,4 +15,5 @@
 *.wav   binary
 *.png   binary
 *.jpg   binary
+*.gif   binary
 *.ico   binary

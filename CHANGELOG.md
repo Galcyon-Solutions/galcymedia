@@ -3,6 +3,21 @@
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the versioning is [semantic](https://semver.org/).
 
+## 0.1.1 - 2026-08-25
+
+Documentation only. The package itself is byte for byte what 0.1.0 shipped.
+
+### Fixed
+
+- The panel recording did not render on the PyPI page. PyPI proxies every
+  image in a README, and the proxy refuses anything that does not arrive as
+  an image type: a GitHub release asset is served as
+  `application/octet-stream` with `Content-Disposition: attachment`, so it
+  was rejected with "Unsupported content-type returned" even though the file
+  is a valid GIF. It now lives in the repository and is linked through
+  `github.com/.../raw/main/`, which returns `image/gif`. It does not enter
+  the distribution: the sdist still carries 52 entries.
+
 ## 0.1.0 - 2026-08-24
 
 First release. Asterisk 23.4.0 or later with `chan_websocket`; Python 3.10

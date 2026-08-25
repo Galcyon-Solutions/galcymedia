@@ -66,7 +66,7 @@ from .server import connect, serve
 from .session import Session
 from .speech import SpeechState
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 # Grouped by who uses each name, on purpose; alphabetical order would erase
 # that, so the sort rule is waived here.

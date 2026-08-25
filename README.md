@@ -6,7 +6,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![RTVI 2.1.0](https://img.shields.io/badge/RTVI-2.1.0-e8a33d.svg)](https://docs.pipecat.ai/client/rtvi-standard)
 
-![A live call in the galcymedia panel: the call chain filling in with its latency in milliseconds, the conversation transcribed turn by turn, and the RTVI events arriving as they happen.](https://github.com/Galcyon-Solutions/galcymedia/releases/download/v0.1.0/panel.gif)
+![A live call in the galcymedia panel: the call chain filling in with its latency in milliseconds, the conversation transcribed turn by turn, and the RTVI events arriving as they happen.](https://github.com/Galcyon-Solutions/galcymedia/raw/main/assets/panel.gif)
 
 Asterisk 23 ships `chan_websocket`, a channel that sends and receives the
 audio of a call over a WebSocket: binary frames with the raw samples and
