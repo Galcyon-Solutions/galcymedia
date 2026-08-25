@@ -1,0 +1,177 @@
+name: CI
+
+# The library promises Python 3.10 to 3.13 and one runtime dependency. Both
+# claims are checked here on every push, because a claim nobody runs is a
+# claim that rots.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Read the code and nothing else. Declaring this explicitly turns every other
+# permission off, which is what a test workflow should have: the job that
+# publishes asks for its own, and it is a different file.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The core, on every version the package claims to support. Without the
+  # pipecat extra, so this also proves the promise the README makes: the
+  # library installs with `websockets` alone and the suite still passes.
+  test:
+    name: tests, Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      # A failure on 3.10 must not hide the result on 3.13. Knowing WHICH
+      # versions broke is the whole point of a matrix.
+      fail-fast: false
+      matrix:
+        # Quoted, and not a style preference: YAML reads 3.10 unquoted as the
+        # number 3.1, so the runner would install Python 3.1 and the job would
+        # fail with something that never mentions the quotes.
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install
+        run: python -m pip install --upgrade pip && pip install -e ".[dev]"
+
+      - name: The dependency tree is websockets and nothing else
+        run: |
+          python - <<'PY'
+          import importlib.metadata as md
+          deps = md.requires("galcymedia") or []
+          hard = [d for d in deps if "extra ==" not in d]
+          print("declared runtime dependencies:", hard)
+          assert len(hard) == 1 and hard[0].startswith("websockets"), hard
+          PY
+
+      - name: Tests
+        run: pytest -q
+
+  # The Pipecat adapter. It is a separate job and not another axis of the
+  # matrix above for a measured reason: pipecat-ai declares
+  # Requires-Python >=3.11, so there is no 3.10 run to be had here. The
+  # adapter's tests skip themselves when the extra is missing
+  # (pytest.importorskip), which is convenient and also a trap: without this
+  # job they would skip in CI forever and nobody would notice.
+  test-pipecat:
+    name: tests with [pipecat], Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install with the extra
+        run: python -m pip install --upgrade pip && pip install -e ".[dev,pipecat]"
+
+      # Importing it here, before pytest, is what makes the job honest: if
+      # the extra did not install, this fails loudly instead of letting
+      # importorskip turn the whole file green-by-skipping.
+      - name: Pipecat really is installed
+        run: |
+          python - <<'PY'
+          import importlib.metadata as md
+          print("pipecat-ai", md.version("pipecat-ai"))
+          import pipecat.frames.frames  # noqa: F401
+          PY
+
+      - name: The adapter's tests
+        run: pytest tests/test_adapter_pipecat.py -q -ra
+
+      - name: Full suite
+        run: pytest -q
+
+  lint:
+    name: ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install
+        run: python -m pip install --upgrade pip && pip install -e ".[dev]"
+
+      # src only, on purpose: tests/ carries findings that are deliberate
+      # there (broad excepts in the hostile-input suite, mutable class
+      # attributes in the doubles), and a lint gate nobody can satisfy is a
+      # gate that gets disabled.
+      - name: ruff
+        run: ruff check src
+
+  # Builds the artifacts and keeps them. The job that publishes to PyPI does
+  # NOT build: it downloads what this one produced, which is what the
+  # packaging guide asks for and what makes the uploaded file the same one
+  # the tests ran against.
+  build:
+    name: build and twine check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install the build tools
+        run: python -m pip install --upgrade pip build twine
+
+      - name: Build
+        run: python -m build
+
+      - name: twine check
+        run: twine check dist/*
+
+      # The sdist carries what the manifest says and nothing from the working
+      # tree. It went wrong once: an undeclared sdist swept up the vendored
+      # reference clones and the build died on a path longer than MAX_PATH.
+      - name: The sdist carries only what it should
+        run: |
+          python - <<'PY'
+          import glob
+          import tarfile
+          # Found by glob, not by name: a hardcoded 0.1.0 here would keep
+          # passing on the 0.2 by checking a file that is no longer built.
+          sdists = glob.glob("dist/*.tar.gz")
+          assert len(sdists) == 1, sdists
+          with tarfile.open(sdists[0]) as tar:
+              names = tar.getnames()
+          tops = sorted({n.split("/")[1] for n in names if "/" in n})
+          print(f"{len(names)} entries, top level: {tops}")
+          forbidden = [n for n in names
+                       if any(bad in n for bad in
+                              ("vendor", "scratch", "/tools/", "/es/",
+                               ".github", "PENDIENTES"))]
+          assert not forbidden, forbidden
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
