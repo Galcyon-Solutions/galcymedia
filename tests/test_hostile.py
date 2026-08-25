@@ -80,13 +80,10 @@ async def _serve_on(port, factory=SpyProvider, **kw):
 async def _wait_until_listening(port, task, timeout=10.0):
     """Waits for the port to accept, instead of guessing how long it takes.
 
-    This was `await asyncio.sleep(0.15)`, which is a race with a stopwatch:
-    it holds on an idle machine and not on a loaded CI runner, and when it
-    loses, the failure blames the test that came next. Connecting is the
-    thing actually being waited for, so that is what is waited for.
-
-    The server task is checked on every round: a failed bind would otherwise
-    keep this spinning until the timeout instead of reporting the real error.
+    A fixed `asyncio.sleep(0.15)` holds on an idle machine and loses on a
+    loaded runner, and when it loses it blames the test that came next. The
+    server task is checked every round so a failed bind reports its own
+    error instead of timing out here.
     """
     deadline = asyncio.get_running_loop().time() + timeout
     while True:
