@@ -73,8 +73,36 @@ async def _serve_on(port, factory=SpyProvider, **kw):
     # ensure_future work the same; ensure_future is used out of habit.
     task = asyncio.ensure_future(
         serve(factory, host="127.0.0.1", port=port, stop=stop, **kw))
-    await asyncio.sleep(0.15)
+    await _wait_until_listening(port, task)
     return stop, task
+
+
+async def _wait_until_listening(port, task, timeout=10.0):
+    """Waits for the port to accept, instead of guessing how long it takes.
+
+    A fixed `asyncio.sleep(0.15)` holds on an idle machine and loses on a
+    loaded runner, and when it loses it blames the test that came next. The
+    server task is checked every round so a failed bind reports its own
+    error instead of timing out here.
+    """
+    deadline = asyncio.get_running_loop().time() + timeout
+    while True:
+        if task.done():
+            await task          # re-raises the bind failure with its message
+            raise RuntimeError("serve() ended before accepting connections")
+        try:
+            reader, writer = await asyncio.open_connection("127.0.0.1", port)
+        except OSError:
+            if asyncio.get_running_loop().time() > deadline:
+                raise
+            await asyncio.sleep(0.01)
+            continue
+        writer.close()
+        try:
+            await writer.wait_closed()
+        except OSError:
+            pass
+        return
 
 
 async def _shutdown(stop, task):

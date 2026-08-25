@@ -68,6 +68,10 @@ elevenlabs = []
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
+    # A test that hangs has to say which one it was. Without this the suite
+    # brings up real servers with real timeouts, so a deadlock eats the whole
+    # CI job and the log ends with no name in it.
+    "pytest-timeout>=2.3",
     "ruff>=0.6",
     # The reference for pcm.py: stdlib audioop below 3.13, this package after.
     "audioop-lts>=0.2; python_version >= '3.13'",
@@ -123,6 +127,16 @@ exclude = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+# Catches HANGS, not slowness. The slowest test measured is 5.67 s (a hung
+# close that must not block the shutdown), so this leaves an order of
+# magnitude of room: anything that trips it is deadlocked, not busy.
+#
+# It earns its place: a deadlock used to consume the entire CI job and the
+# log ended without naming the test. `thread` rather than `signal` because
+# signal is not supported on Windows.
+timeout = 60
+timeout_method = "thread"
 
 [tool.ruff]
 line-length = 88

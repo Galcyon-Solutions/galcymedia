@@ -33,7 +33,16 @@ class FakeWebSocket:
         async def generate():
             for message in self.script:
                 yield message
-                await asyncio.sleep(0)
+                # A CEILING, NOT A TUNED NUMBER. The session starts the
+                # provider in a task, so it only reaches `accept_audio()`
+                # once the loop yields, and how many times it has to changed
+                # between Python versions: measured minimum is 4 on 3.10 and
+                # 3.11, and 1 on 3.12 and 3.13. Going over never breaks
+                # anything (probed to 200 on all four); falling short does.
+                # Re-measure with `tools/medir_cesiones.py`, which prints the
+                # table per interpreter in seconds.
+                for _ in range(20):
+                    await asyncio.sleep(0)
             self._delivered.set()
         return generate()
 
