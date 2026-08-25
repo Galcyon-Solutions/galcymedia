@@ -12,6 +12,19 @@ on:
   release:
     types: [published]
 
+  # The escape hatch, for a release that was published before this workflow
+  # existed, or one whose event did not fire. PyPI accepts it: the trusted
+  # publisher registers no event, and its `event_name` check is a one-item
+  # blocklist that rejects `pull_request_target` and nothing else. Read in
+  # warehouse/oidc/models/github.py, where the publisher side of that claim
+  # is literally a property returning "placeholder" with the comment "not
+  # used".
+  #
+  # It needs write access to the repository, so the guard is the same one
+  # that guards everything else here: the `pypi` environment has a required
+  # reviewer, and that approval is the last point where this can be stopped.
+  workflow_dispatch:
+
 # Read the code and nothing else. Declaring any permission explicitly turns
 # the rest off, so the two jobs that publish have to ask for their own.
 permissions:
