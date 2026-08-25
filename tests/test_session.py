@@ -33,7 +33,27 @@ class FakeWebSocket:
         async def generate():
             for message in self.script:
                 yield message
-                await asyncio.sleep(0)
+                # THREE HOPS, AND THE NUMBER IS NOT DECORATION. The session
+                # does not start the provider inside the reader loop: it
+                # spawns a task (`Session._start_provider`), and that task
+                # only reaches `accept_audio()` after the loop yields. One
+                # hop was enough on Python 3.12 and 3.13 and NOT on 3.10 and
+                # 3.11, where the scheduler needs one more before a freshly
+                # created task makes progress.
+                #
+                # The symptom was misleading, which is why this is spelled
+                # out: seven tests failed asserting on an EMPTY list, as if
+                # the session had dropped the audio. It had, and correctly
+                # (`Session._on_audio` discards until the provider is ready),
+                # because `run()` had already ended and `_cleanup` cancels
+                # what is still pending. The library was right and the double
+                # was racing it.
+                #
+                # Measured on 3.13: the startup needs 1 hop, so 3 leaves
+                # margin without hiding a real regression, because a session
+                # that needed unboundedly many would still fail.
+                for _ in range(3):
+                    await asyncio.sleep(0)
             self._delivered.set()
         return generate()
 
